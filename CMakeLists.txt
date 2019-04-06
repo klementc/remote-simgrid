@@ -5,6 +5,8 @@
 cmake_minimum_required(VERSION 2.8.10)
 project(RemoteSimGrid C CXX)
 
+add_compile_options(-DDEBUG_TRACE)
+
 # Location of other cmake files
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/tools/cmake/")
 

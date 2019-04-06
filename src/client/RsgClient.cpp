@@ -53,13 +53,19 @@ RsgClient::~RsgClient()
 static void initialize_client(void) __attribute__((constructor));
 void initialize_client(void) {
     char *rpcEnvPort = std::getenv("RsgRpcNetworkName");
-    assert(rpcEnvPort != NULL);
-    client = new RsgClient(std::string(rpcEnvPort));
+    //assert(rpcEnvPort != NULL);
+    if(rpcEnvPort != NULL){
+      client = new RsgClient(std::string(rpcEnvPort));
+    }
 }
 
 static void desinitialize_client(void) __attribute__((destructor));
 void desinitialize_client(void) {
     debug_client_print("A RSG client process exited");
+    if(client != NULL)
+      if(client->actor != NULL){
+	debug_client_print("Actor should quit");
+      }
 }
 
 
