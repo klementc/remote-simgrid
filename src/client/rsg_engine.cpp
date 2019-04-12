@@ -7,3 +7,7 @@ using namespace ::simgrid;
 double rsg::getClock() {
     return client->engine->getClock();
 }
+
+bool rsg::isClient() {
+    return client != NULL;
+}

@@ -9,6 +9,8 @@ namespace simgrid {
     namespace rsg {
         
         double getClock();
-
+	// ask rsg if this thread is an rsg client
+	// if we can make calls to rsg 
+	bool isClient();
     } // namespace simgrid::rsg
 } // namespace simgrid

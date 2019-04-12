@@ -53,13 +53,18 @@ RsgClient::~RsgClient()
 static void initialize_client(void) __attribute__((constructor));
 void initialize_client(void) {
     char *rpcEnvPort = std::getenv("RsgRpcNetworkName");
-    assert(rpcEnvPort != NULL);
-    client = new RsgClient(std::string(rpcEnvPort));
+    if(rpcEnvPort != NULL){
+        client = new RsgClient(std::string(rpcEnvPort));
+    } else {
+        debug_client_print("No rpcEnvPort given, caution everythings related to clients are unavailable in %d", getpid());
+    }
 }
 
 static void desinitialize_client(void) __attribute__((destructor));
 void desinitialize_client(void) {
-    debug_client_print("A RSG client process exited");
+    char *program_cmd = std::getenv("_");
+    char *rpcEnvPort = std::getenv("RsgRpcNetworkName");
+    debug_client_print("A RSG client process %d exited (RRNN=%s), it was launched with %s", getpid(),rpcEnvPort,program_cmd);
 }
 
 
