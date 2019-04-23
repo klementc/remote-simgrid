@@ -60,11 +60,11 @@ void rsg::this_actor::quit(void) {
     delete client;
     client = 0;
    debug_spawn_client("quitted !! %p", client);
-   
+
    //if we are the root thread
    if(syscall(SYS_gettid) == getpid()) {
        debug_spawn_client("ROOT THREAD: wait for all children");
-       
+
        std::unordered_map<std::thread::id, std::thread*>::size_type s;
        do {
         child_threads_mutex.lock();
@@ -119,10 +119,10 @@ char *rsg::this_actor::recv(Mailbox &mailbox) {
 
 char* rsg::Actor::getName() {
     std::string res;
-    
+
     client->actor->getName(res, this->p_remoteAddr);
     char* res_cstr = (char*) malloc( (sizeof(char*) * res.length()) + 1);
-    
+
     strcpy(res_cstr, res.c_str());
     return res_cstr;
 }
@@ -130,7 +130,7 @@ char* rsg::Actor::getName() {
 rsg::Host* rsg::Actor::getHost() {
     rsgHostCurrentResType res;
     if(pHost == NULL) {
-        
+
         client->actor->getHost(res, this->p_remoteAddr);
         pHost = new Host(res.name, res.addr);
     }
@@ -191,7 +191,7 @@ void on_thread_exit(std::function<void()> func)
     void add(std::function<void()> func)
     {
       exit_funcs.push(std::move(func));
-    }   
+    }
   };
 
   thread_local ThreadExiter exiter;
@@ -207,10 +207,10 @@ void remove_from_child_threads() {
 void actorRunner(std::function<int(void *)> code, std::string networkName, void *data ) {
     //as client is thread_local, it is a fresh client here. So, we init it:
     client = new RsgClient(networkName);
-    
+
     //wwhen the *REAL* thread exit we want to remove it from child_threads
     on_thread_exit(remove_from_child_threads);
-    
+
     int pid = rsg::this_actor::getPid();
 
     debug_spawn_client("Actor [%d] running", pid);
@@ -228,26 +228,51 @@ void actorRunner(std::function<int(void *)> code, std::string networkName, void 
     debug_spawn_client("Actor [%d] quit", pid);
 }
 
+
 rsg::Actor *rsg::Actor::createActor(std::string name, rsg::HostPtr host, std::function<int(void *)> code, void *data) {
+  std::string networkName;
+  client->actor->createActorPrepare(networkName);
+
+  std::thread *nActor = new std::thread(actorRunner, code, networkName, data);
+  child_threads_mutex.lock();
+  child_threads.insert({nActor->get_id() , nActor});
+  child_threads_mutex.unlock();
+  unsigned long int addr = client->actor->createActor(name, host->p_remoteAddr);
+  rsg::Actor *act = new Actor(addr);
+
+  rsg::Actor *self = rsg::Actor::self();
+  char *cstr_name = self->getName();
+  delete self;
+  // Commented, as calling getPid increases time.
+  //debug_spawn_client("Actor [%d]%s creates thread [%d]", this_actor::getPid(), cstr_name, act->getPid());
+  free(cstr_name);
+
+  return act;
+}
+
+
+rsg::Actor *rsg::Actor::createActor(void** thread,std::string name, rsg::HostPtr host, std::function<int(void *)> code, void *data) {
     std::string networkName;
     client->actor->createActorPrepare(networkName);
-    
+
     std::thread *nActor = new std::thread(actorRunner, code, networkName, data);
+    *thread = (void*)nActor;
     child_threads_mutex.lock();
     child_threads.insert({nActor->get_id() , nActor});
     child_threads_mutex.unlock();
     unsigned long int addr = client->actor->createActor(name, host->p_remoteAddr);
     rsg::Actor *act = new Actor(addr);
-    
+
     rsg::Actor *self = rsg::Actor::self();
     char *cstr_name = self->getName();
     delete self;
     // Commented, as calling getPid increases time.
     //debug_spawn_client("Actor [%d]%s creates thread [%d]", this_actor::getPid(), cstr_name, act->getPid());
     free(cstr_name);
-    
+
     return act;
 }
+
 
 rsg::Actor *rsg::Actor::self() {
     unsigned long int addr = client->actor->selfAddr();
@@ -269,9 +294,9 @@ int rsg::this_actor::fork(std::string childName) {
 
     std::string networkName;
     client->actor->createActorPrepare(networkName);
-    
+
     debug_spawn_client("FORK prepared: %s", networkName.c_str());
-    
+
     debug_spawn_client("FORK go");
     pid_t realSystemPid = ::fork();
     if(0 == realSystemPid) { // Child
@@ -290,15 +315,15 @@ int rsg::this_actor::fork(std::string childName) {
         return 0;
     }
     debug_spawn_client("[PARENT] FORK AFTER %d", realSystemPid);
-    
+
     unsigned long long newActorAddr = client->actor->createActor(childName, hostAddr);
-   
+
     debug_spawn_client("[PARENT] FORK AFTER create actor");
-    
+
     int newPid = client->actor->getPid(newActorAddr);
-   
+
     debug_spawn_client("[PARENT] FORK AFTER child pid: %d", newPid);
-    
+
     rsg::Actor *self = rsg::Actor::self();
     char *c_name = self->getName();
     std::string name(c_name);
